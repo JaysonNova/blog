@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git config:*)",
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(mkdir:*)",
+      "Bash(pnpm install:*)",
+      "Bash(npm:*)",
+      "Bash(psql:*)",
+      "Bash(where postgres:*)",
+      "Bash(choco:*)",
+      "Bash(powershell:*)",
+      "Bash(npx prisma:*)",
+      "Bash(tasklist:*)",
+      "Bash(node:*)",
+      "Bash(pnpm:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
