@@ -1,0 +1,93 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate code
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm exec next build --webpack
+
+      - name: Sync source to VPS
+        uses: burnett01/rsync-deployments@7.0.2
+        with:
+          switches: >-
+            -avzr
+            --delete
+            --exclude=.git
+            --exclude=.github
+            --exclude=node_modules
+            --exclude=.next
+            --exclude=.env
+            --exclude=.env.*
+          path: ./
+          remote_path: ${{ secrets.DEPLOY_PATH }}/current/
+          remote_host: ${{ secrets.SERVER_HOST }}
+          remote_user: ${{ secrets.SERVER_USER }}
+          remote_port: ${{ secrets.SERVER_PORT }}
+          remote_key: ${{ secrets.SERVER_SSH_KEY }}
+
+      - name: Build and restart on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+
+            APP_ROOT="${{ secrets.DEPLOY_PATH }}"
+            APP_DIR="$APP_ROOT/current"
+            SHARED_DIR="$APP_ROOT/shared"
+            ENV_FILE="$SHARED_DIR/.env.production"
+
+            mkdir -p "$APP_DIR" "$SHARED_DIR/prisma"
+
+            if [ ! -f "$ENV_FILE" ]; then
+              echo "Missing $ENV_FILE on server."
+              exit 1
+            fi
+
+            ln -sfn "$ENV_FILE" "$APP_DIR/.env"
+
+            export PNPM_HOME="$HOME/.local/share/pnpm"
+            export PATH="$PNPM_HOME:$PATH"
+
+            corepack enable
+
+            cd "$APP_DIR"
+            pnpm install --frozen-lockfile
+            pnpm prisma generate
+            pnpm prisma db push
+            pnpm exec next build --webpack
+
+            PM2_CWD="$APP_DIR" pm2 startOrReload ecosystem.config.cjs --update-env
+            pm2 save

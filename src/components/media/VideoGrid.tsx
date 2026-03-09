@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { EmptyState } from '@/components/common/EmptyState'
 import { VideoCard } from './VideoCard'
 import { VideoPlayer } from './VideoPlayer'
 import type { VideoWithAuthor } from '@/types/video'
@@ -14,9 +15,12 @@ export function VideoGrid({ videos }: VideoGridProps) {
 
   if (videos.length === 0) {
     return (
-      <div className="py-4xl text-center">
-        <p className="text-body text-muted-foreground">暂无视频</p>
-      </div>
+      <EmptyState
+        title="暂无视频"
+        description="视频内容尚未发布，后续会在这里集中展示。"
+        actionHref="/"
+        actionLabel="先浏览首页"
+      />
     )
   }
 

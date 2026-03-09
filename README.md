@@ -17,7 +17,7 @@
 
 ## 🛠️ 技术栈
 
-- **框架**: Next.js 14 (App Router)
+- **框架**: Next.js 16 (App Router)
 - **语言**: TypeScript
 - **数据库**: SQLite (开发) / PostgreSQL (生产)
 - **ORM**: Prisma
@@ -33,6 +33,8 @@
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - 架构设计文档
 - [docs/DESIGN_PROPOSAL.md](./docs/DESIGN_PROPOSAL.md) - UI/UX 设计方案
 - [docs/DEVELOPMENT_PLAN.md](./docs/DEVELOPMENT_PLAN.md) - 开发实施计划
+- [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md) - Git 分支、PR 与发布流程规范
+- [docs/VPS_GITHUB_CICD_DEPLOYMENT.md](./docs/VPS_GITHUB_CICD_DEPLOYMENT.md) - VPS + GitHub Actions 部署说明
 - [docs/PROJECT_SETUP.md](./docs/PROJECT_SETUP.md) - 项目初始化指南
 
 ## 🚀 快速开始
@@ -171,4 +173,3 @@ MIT
 ## 🤝 贡献
 
 欢迎贡献！请先阅读贡献指南。
-

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Calendar, Clock, ArrowLeft, Tag } from 'lucide-react'
@@ -8,15 +9,18 @@ import { postDAO } from '@/lib/db/dao/post-dao'
 import { markdownToHtml, extractHeadings } from '@/lib/markdown/processor'
 import { formatDate } from '@/lib/utils/date'
 import { getReadingTime, formatReadingTime } from '@/lib/utils/reading-time'
+import { absoluteUrl, siteConfig } from '@/lib/site-config'
+import type { PostWithRelations } from '@/types/post'
 
 interface ArticlePageProps {
-  params: {
+  params: Promise<{
     slug: string
-  }
+  }>
 }
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
-  const post = await postDAO.findBySlug(params.slug)
+  const { slug } = await params
+  const post: PostWithRelations | null = await postDAO.findBySlug(slug)
 
   if (!post || !post.published) {
     notFound()
@@ -31,23 +35,52 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   ])
 
   const readingMinutes = getReadingTime(post.content)
+  const articleJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post.title,
+    description: post.excerpt || post.title,
+    datePublished: (post.publishedAt || post.createdAt).toISOString(),
+    dateModified: post.updatedAt.toISOString(),
+    mainEntityOfPage: absoluteUrl(`/articles/${post.slug}`),
+    articleSection: post.category?.name,
+    keywords: post.tags.map((tag) => tag.name),
+    author: {
+      '@type': 'Person',
+      name: post.author.name || siteConfig.author.name,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: siteConfig.name,
+    },
+    ...(post.coverImage
+      ? {
+          image: [absoluteUrl(post.coverImage)],
+        }
+      : {}),
+  }
 
   return (
     <div className="py-4xl">
       <Container>
-        <div className="max-w-container mx-auto">
-          {/* Back Link */}
-          <Link
-            href="/articles"
-            className="inline-flex items-center gap-xs text-sm text-muted-foreground hover:text-foreground transition-colors mb-xl no-underline"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            返回文章列表
-          </Link>
+        <div>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+          />
+          <div className="max-w-content">
+            <Link
+              href="/articles"
+              className="mb-xl inline-flex items-center gap-xs text-sm text-muted-foreground transition-colors no-underline hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              返回文章列表
+            </Link>
+          </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_240px] gap-xl">
+          <div className="grid grid-cols-1 items-start gap-xl xl:grid-cols-[minmax(0,720px)_240px] xl:justify-between">
             {/* Main Content */}
-            <div className="max-w-content">
+            <div>
               {/* Article Header */}
               <header className="mb-xl">
                 <h1 className="text-display font-bold mb-md tracking-tight">
@@ -112,17 +145,48 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   )
 }
 
-export async function generateMetadata({ params }: ArticlePageProps) {
-  const post = await postDAO.findBySlug(params.slug)
+export async function generateMetadata({
+  params,
+}: ArticlePageProps): Promise<Metadata> {
+  const { slug } = await params
+  const post: PostWithRelations | null = await postDAO.findBySlug(slug)
 
   if (!post) {
     return {
       title: '文章未找到',
+      description: '请求的文章不存在或已下线。',
     }
   }
 
+  const title = post.title
+  const description = post.excerpt || post.title
+  const canonicalUrl = absoluteUrl(`/articles/${post.slug}`)
+  const image = post.coverImage ? absoluteUrl(post.coverImage) : undefined
+
   return {
-    title: post.title,
-    description: post.excerpt || post.title,
+    title,
+    description,
+    alternates: {
+      canonical: `/articles/${post.slug}`,
+    },
+    authors: [{ name: post.author.name || siteConfig.author.name }],
+    keywords: post.tags.map((tag) => tag.name),
+    openGraph: {
+      type: 'article',
+      url: canonicalUrl,
+      title,
+      description,
+      publishedTime: (post.publishedAt || post.createdAt).toISOString(),
+      modifiedTime: post.updatedAt.toISOString(),
+      authors: [post.author.name || siteConfig.author.name],
+      tags: post.tags.map((tag) => tag.name),
+      ...(image ? { images: [{ url: image, alt: title }] } : {}),
+    },
+    twitter: {
+      card: image ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      ...(image ? { images: [image] } : {}),
+    },
   }
 }

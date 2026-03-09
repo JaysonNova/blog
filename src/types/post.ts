@@ -42,6 +42,7 @@ export interface CreatePostInput {
   excerpt?: string
   coverImage?: string
   published?: boolean
+  publishedAt?: Date
   categoryId?: string
   tagIds?: string[]
 }

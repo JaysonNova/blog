@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A modern blog system built with Next.js 14 App Router, TypeScript, Prisma ORM, and SQLite (for local development). The project follows a layered architecture with clear separation between presentation, application logic, and data access layers.
+A modern blog system built with Next.js 16 App Router, TypeScript, Prisma ORM, and SQLite (for local development). The project follows a layered architecture with clear separation between presentation, application logic, and data access layers.
 
 **Note**: The project is currently configured to use SQLite for local development. To switch to PostgreSQL for production, update `prisma/schema.prisma` datasource provider and the `DATABASE_URL` in `.env`.
 
@@ -154,10 +154,13 @@ docs: update API documentation
 ### Branch Strategy
 
 - `main` - Production branch
-- `develop` - Development branch
+- `develop` - Integration branch only; do not implement current feature work directly here
 - `feature/*` - Feature branches (from develop)
 - `fix/*` - Bug fixes
+- `chore/*` - Docs, tooling, dependency, and non-feature work
 - `hotfix/*` - Emergency fixes (from main)
+
+Rule: start regular work from `develop`, but do the actual implementation on a short-lived work branch and merge back by PR.
 
 ## Important Notes
 
@@ -217,6 +220,7 @@ All project documentation is organized in the `docs/` directory:
 - `docs/PROJECT_SETUP.md` - Initial setup and configuration guide
 - `docs/DESIGN_PROPOSAL.md` - UI/UX design specifications
 - `docs/DEVELOPMENT_PLAN.md` - Implementation roadmap and tasks
+- `docs/GIT_WORKFLOW.md` - Git branching, PR, merge, and release workflow
 
 **Important**: When creating new documentation files, always place them in the `docs/` directory.
 

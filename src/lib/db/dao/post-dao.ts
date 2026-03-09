@@ -1,6 +1,5 @@
 import { prisma } from '../prisma'
-import type { Post, CreatePostInput, UpdatePostInput } from '@/types/post'
-import type { PaginationParams } from '@/types/api'
+import type { CreatePostInput, UpdatePostInput } from '@/types/post'
 
 export class PostDAO {
   async findById(id: string) {

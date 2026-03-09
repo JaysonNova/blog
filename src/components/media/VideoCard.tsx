@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Play, Calendar, Clock, Eye } from 'lucide-react'
+import { Play, Calendar, Eye } from 'lucide-react'
 import { formatDate } from '@/lib/utils/date'
+import { getShimmerDataUrl } from '@/lib/utils/image'
 import type { VideoWithAuthor } from '@/types/video'
 import { cn } from '@/lib/utils/cn'
 
@@ -35,6 +36,9 @@ export function VideoCard({ video, onPlay }: VideoCardProps) {
           src={video.thumbnailUrl || '/placeholder-video.jpg'}
           alt={video.title}
           fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          placeholder="blur"
+          blurDataURL={getShimmerDataUrl(1280, 720)}
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
         />
