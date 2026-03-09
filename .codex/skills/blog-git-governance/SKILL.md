@@ -23,7 +23,7 @@ Prefer this skill whenever the task touches `git`, `gh`, branch selection, commi
 ## Execution Rules
 
 - Treat `main` as production and keep it releasable.
-- Treat `develop` as the integration branch for ongoing work.
+- Treat `develop` as the integration branch for ongoing work, not as the place to implement current feature changes directly.
 - Do not commit directly to `main` or `develop` unless the user explicitly asks to bypass policy.
 - Use `gh` for PR-oriented operations when authentication is available. Fall back to plain `git` only when `gh` is unavailable or unauthenticated.
 - If the local repository state conflicts with policy, call it out before taking action.

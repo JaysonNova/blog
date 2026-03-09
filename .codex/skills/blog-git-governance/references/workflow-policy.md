@@ -3,7 +3,7 @@
 ## 1. Branch Model
 
 - `main`: production branch. Keep deployable. Do not develop directly on it.
-- `develop`: default integration branch. Start normal work from here.
+- `develop`: default integration branch. Start normal work from here, but do not implement current feature changes directly on it.
 - `feature/<scope>-<topic>`: new user-facing or internal feature work. Branch from `develop`.
 - `fix/<scope>-<topic>`: non-production bugfix. Branch from `develop`.
 - `chore/<scope>-<topic>`: tooling, dependency, docs, CI, or refactor work with no direct user-facing behavior. Branch from `develop`.
@@ -16,8 +16,12 @@ Do not create long-lived release branches unless the user explicitly asks for on
 Choose the branch with this rule set:
 
 1. If the change fixes production immediately, branch from `main` as `hotfix/...`.
-2. If the change is regular feature, bugfix, refactor, docs, or tooling work, branch from `develop`.
+2. If the change is regular feature, bugfix, refactor, docs, or tooling work, branch from `develop` and complete the implementation on `feature/*`, `fix/*`, or `chore/*`.
 3. If the repository is currently on the wrong branch, switch before editing whenever practical.
+
+Hard rule:
+
+- `develop` receives merges; it is not the branch for current feature development.
 
 ## 3. Update Before Branching
 
@@ -45,6 +49,7 @@ Prefer `--ff-only` pulls. Avoid implicit merge commits from `git pull`.
 - Keep one logical change per commit.
 - Avoid mixing formatting-only edits with functional changes unless unavoidable.
 - Commit from the work branch, not from `main` or `develop`.
+- Current feature development commits must not be created directly on `develop`.
 - If the worktree contains unrelated user changes, do not sweep them into the same commit without explicit approval.
 
 ## 5. Pull Request Policy

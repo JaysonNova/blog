@@ -45,34 +45,36 @@ export default async function ArticlesPage({ searchParams }: ArticlesPageProps) 
 
   return (
     <div className="py-4xl">
-      <Container size="content">
-        <FadeIn>
-          <div className="mb-xl">
-            <h1 className="text-display font-bold">文章</h1>
-            <p className="mt-sm text-body text-muted-foreground">
-              以分类和分页整理所有公开内容，便于按主题连续阅读。
-            </p>
-          </div>
-        </FadeIn>
-
-        <FadeIn delay={0.05}>
-          <CategoryFilter categories={categories} currentCategoryId={categoryId} />
-        </FadeIn>
-
-        <FadeIn delay={0.1}>
-          <PostList posts={posts} />
-        </FadeIn>
-
-        {totalPages > 1 ? (
-          <FadeIn delay={0.14}>
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              basePath="/articles"
-              searchParams={{ category: categoryId }}
-            />
+      <Container>
+        <div className="max-w-content">
+          <FadeIn>
+            <div className="mb-xl">
+              <h1 className="text-display font-bold">文章</h1>
+              <p className="mt-sm text-body text-muted-foreground">
+                以分类和分页整理所有公开内容，便于按主题连续阅读。
+              </p>
+            </div>
           </FadeIn>
-        ) : null}
+
+          <FadeIn delay={0.05}>
+            <CategoryFilter categories={categories} currentCategoryId={categoryId} />
+          </FadeIn>
+
+          <FadeIn delay={0.1}>
+            <PostList posts={posts} />
+          </FadeIn>
+
+          {totalPages > 1 ? (
+            <FadeIn delay={0.14}>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                basePath="/articles"
+                searchParams={{ category: categoryId }}
+              />
+            </FadeIn>
+          ) : null}
+        </div>
       </Container>
     </div>
   )

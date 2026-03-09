@@ -63,23 +63,24 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   return (
     <div className="py-4xl">
       <Container>
-        <div className="max-w-container mx-auto">
+        <div>
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
           />
-          {/* Back Link */}
-          <Link
-            href="/articles"
-            className="inline-flex items-center gap-xs text-sm text-muted-foreground hover:text-foreground transition-colors mb-xl no-underline"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            返回文章列表
-          </Link>
+          <div className="max-w-content">
+            <Link
+              href="/articles"
+              className="mb-xl inline-flex items-center gap-xs text-sm text-muted-foreground transition-colors no-underline hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              返回文章列表
+            </Link>
+          </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_240px] gap-xl">
+          <div className="grid grid-cols-1 items-start gap-xl xl:grid-cols-[minmax(0,720px)_240px] xl:justify-between">
             {/* Main Content */}
-            <div className="max-w-content">
+            <div>
               {/* Article Header */}
               <header className="mb-xl">
                 <h1 className="text-display font-bold mb-md tracking-tight">

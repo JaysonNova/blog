@@ -154,10 +154,13 @@ docs: update API documentation
 ### Branch Strategy
 
 - `main` - Production branch
-- `develop` - Development branch
+- `develop` - Integration branch only; do not implement current feature work directly here
 - `feature/*` - Feature branches (from develop)
 - `fix/*` - Bug fixes
+- `chore/*` - Docs, tooling, dependency, and non-feature work
 - `hotfix/*` - Emergency fixes (from main)
+
+Rule: start regular work from `develop`, but do the actual implementation on a short-lived work branch and merge back by PR.
 
 ## Important Notes
 

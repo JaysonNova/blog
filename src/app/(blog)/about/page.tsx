@@ -19,9 +19,9 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <div className="py-4xl">
-      <Container size="content">
+      <Container>
         <FadeIn>
-          <div className="space-y-lg">
+          <div className="max-w-content space-y-lg">
             <div>
               <h1 className="mb-md text-display font-bold">关于</h1>
               <p className="text-body text-muted-foreground">
