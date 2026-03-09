@@ -217,6 +217,7 @@ All project documentation is organized in the `docs/` directory:
 - `docs/PROJECT_SETUP.md` - Initial setup and configuration guide
 - `docs/DESIGN_PROPOSAL.md` - UI/UX design specifications
 - `docs/DEVELOPMENT_PLAN.md` - Implementation roadmap and tasks
+- `docs/GIT_WORKFLOW.md` - Git branching, PR, merge, and release workflow
 
 **Important**: When creating new documentation files, always place them in the `docs/` directory.
 

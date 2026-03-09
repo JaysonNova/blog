@@ -33,6 +33,7 @@
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - 架构设计文档
 - [docs/DESIGN_PROPOSAL.md](./docs/DESIGN_PROPOSAL.md) - UI/UX 设计方案
 - [docs/DEVELOPMENT_PLAN.md](./docs/DEVELOPMENT_PLAN.md) - 开发实施计划
+- [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md) - Git 分支、PR 与发布流程规范
 - [docs/PROJECT_SETUP.md](./docs/PROJECT_SETUP.md) - 项目初始化指南
 
 ## 🚀 快速开始

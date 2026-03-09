@@ -1,0 +1,7 @@
+interface:
+  display_name: "Blog Git Governance"
+  short_description: "Blog 仓库 Git 分支、PR、合并与发布规范"
+  default_prompt: "Use $blog-git-governance to follow this repository's branch, commit, PR, and release workflow."
+
+policy:
+  allow_implicit_invocation: true
