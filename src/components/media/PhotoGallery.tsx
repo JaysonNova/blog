@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
 import Image from 'next/image'
 import Masonry from 'react-masonry-css'
 import { PhotoProvider, PhotoView } from 'react-photo-view'
 import { Calendar, MapPin, Eye } from 'lucide-react'
+import { EmptyState } from '@/components/common/EmptyState'
 import { formatDate } from '@/lib/utils/date'
+import { getShimmerDataUrl } from '@/lib/utils/image'
 import type { PhotoWithAuthor } from '@/types/photo'
 import 'react-photo-view/dist/react-photo-view.css'
 
@@ -22,9 +23,12 @@ const breakpointColumns = {
 export function PhotoGallery({ photos }: PhotoGalleryProps) {
   if (photos.length === 0) {
     return (
-      <div className="py-4xl text-center">
-        <p className="text-body text-muted-foreground">暂无照片</p>
-      </div>
+      <EmptyState
+        title="暂无照片"
+        description="摄影内容还在整理中，后续会按主题持续补充。"
+        actionHref="/"
+        actionLabel="去看最新文章"
+      />
     )
   }
 
@@ -48,6 +52,9 @@ export function PhotoGallery({ photos }: PhotoGalleryProps) {
                   alt={photo.title}
                   width={photo.width || 800}
                   height={photo.height || 600}
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  placeholder="blur"
+                  blurDataURL={getShimmerDataUrl(photo.width || 800, photo.height || 600)}
                   className="w-full h-auto transition-transform duration-500 group-hover:scale-105"
                   loading="lazy"
                 />

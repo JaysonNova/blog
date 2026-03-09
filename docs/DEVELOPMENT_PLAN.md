@@ -6,7 +6,7 @@
 
 ### 1.1 现有技术栈（保持）
 
-- **框架**: Next.js 14 (App Router)
+- **框架**: Next.js 16 (App Router)
 - **语言**: TypeScript
 - **样式**: Tailwind CSS
 - **组件库**: shadcn/ui

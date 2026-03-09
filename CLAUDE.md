@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A modern blog system built with Next.js 14 App Router, TypeScript, Prisma ORM, and SQLite (for local development). The project follows a layered architecture with clear separation between presentation, application logic, and data access layers.
+A modern blog system built with Next.js 16 App Router, TypeScript, Prisma ORM, and SQLite (for local development). The project follows a layered architecture with clear separation between presentation, application logic, and data access layers.
 
 **Note**: The project is currently configured to use SQLite for local development. To switch to PostgreSQL for production, update `prisma/schema.prisma` datasource provider and the `DATABASE_URL` in `.env`.
 

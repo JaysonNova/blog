@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Calendar, Clock, ArrowLeft, Tag } from 'lucide-react'
@@ -8,15 +9,18 @@ import { postDAO } from '@/lib/db/dao/post-dao'
 import { markdownToHtml, extractHeadings } from '@/lib/markdown/processor'
 import { formatDate } from '@/lib/utils/date'
 import { getReadingTime, formatReadingTime } from '@/lib/utils/reading-time'
+import { absoluteUrl, siteConfig } from '@/lib/site-config'
+import type { PostWithRelations } from '@/types/post'
 
 interface ArticlePageProps {
-  params: {
+  params: Promise<{
     slug: string
-  }
+  }>
 }
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
-  const post = await postDAO.findBySlug(params.slug)
+  const { slug } = await params
+  const post: PostWithRelations | null = await postDAO.findBySlug(slug)
 
   if (!post || !post.published) {
     notFound()
@@ -31,11 +35,39 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   ])
 
   const readingMinutes = getReadingTime(post.content)
+  const articleJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post.title,
+    description: post.excerpt || post.title,
+    datePublished: (post.publishedAt || post.createdAt).toISOString(),
+    dateModified: post.updatedAt.toISOString(),
+    mainEntityOfPage: absoluteUrl(`/articles/${post.slug}`),
+    articleSection: post.category?.name,
+    keywords: post.tags.map((tag) => tag.name),
+    author: {
+      '@type': 'Person',
+      name: post.author.name || siteConfig.author.name,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: siteConfig.name,
+    },
+    ...(post.coverImage
+      ? {
+          image: [absoluteUrl(post.coverImage)],
+        }
+      : {}),
+  }
 
   return (
     <div className="py-4xl">
       <Container>
         <div className="max-w-container mx-auto">
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+          />
           {/* Back Link */}
           <Link
             href="/articles"
@@ -112,17 +144,48 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   )
 }
 
-export async function generateMetadata({ params }: ArticlePageProps) {
-  const post = await postDAO.findBySlug(params.slug)
+export async function generateMetadata({
+  params,
+}: ArticlePageProps): Promise<Metadata> {
+  const { slug } = await params
+  const post: PostWithRelations | null = await postDAO.findBySlug(slug)
 
   if (!post) {
     return {
       title: '文章未找到',
+      description: '请求的文章不存在或已下线。',
     }
   }
 
+  const title = post.title
+  const description = post.excerpt || post.title
+  const canonicalUrl = absoluteUrl(`/articles/${post.slug}`)
+  const image = post.coverImage ? absoluteUrl(post.coverImage) : undefined
+
   return {
-    title: post.title,
-    description: post.excerpt || post.title,
+    title,
+    description,
+    alternates: {
+      canonical: `/articles/${post.slug}`,
+    },
+    authors: [{ name: post.author.name || siteConfig.author.name }],
+    keywords: post.tags.map((tag) => tag.name),
+    openGraph: {
+      type: 'article',
+      url: canonicalUrl,
+      title,
+      description,
+      publishedTime: (post.publishedAt || post.createdAt).toISOString(),
+      modifiedTime: post.updatedAt.toISOString(),
+      authors: [post.author.name || siteConfig.author.name],
+      tags: post.tags.map((tag) => tag.name),
+      ...(image ? { images: [{ url: image, alt: title }] } : {}),
+    },
+    twitter: {
+      card: image ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      ...(image ? { images: [image] } : {}),
+    },
   }
 }

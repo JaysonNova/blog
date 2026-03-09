@@ -17,7 +17,7 @@
 
 ## 🛠️ 技术栈
 
-- **框架**: Next.js 14 (App Router)
+- **框架**: Next.js 16 (App Router)
 - **语言**: TypeScript
 - **数据库**: SQLite (开发) / PostgreSQL (生产)
 - **ORM**: Prisma
@@ -171,4 +171,3 @@ MIT
 ## 🤝 贡献
 
 欢迎贡献！请先阅读贡献指南。
-

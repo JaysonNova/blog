@@ -1,4 +1,6 @@
 import type { Config } from 'tailwindcss'
+import typography from '@tailwindcss/typography'
+import tailwindcssAnimate from 'tailwindcss-animate'
 
 const config: Config = {
   darkMode: ['class'],
@@ -53,8 +55,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
-          '-apple-system',
-          'BlinkMacSystemFont',
+          'var(--font-sans)',
           '"PingFang SC"',
           '"Hiragino Sans GB"',
           '"Microsoft YaHei"',
@@ -62,8 +63,8 @@ const config: Config = {
           'sans-serif',
         ],
         mono: [
+          'var(--font-mono)',
           '"SF Mono"',
-          '"Fira Code"',
           'Consolas',
           'Monaco',
           'monospace',
@@ -112,7 +113,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate'), require('@tailwindcss/typography')],
+  plugins: [tailwindcssAnimate, typography],
 }
 
 export default config
