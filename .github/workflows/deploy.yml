@@ -87,6 +87,22 @@ jobs:
             corepack enable
 
             cd "$APP_DIR"
+            APP_WAS_RUNNING=0
+
+            if pm2 pid blog >/dev/null 2>&1 && [ "$(pm2 pid blog)" != "0" ]; then
+              APP_WAS_RUNNING=1
+            fi
+
+            restore_app() {
+              if [ "$APP_WAS_RUNNING" = "1" ]; then
+                PM2_CWD="$APP_DIR" pm2 startOrReload ecosystem.config.cjs --update-env || true
+                pm2 save || true
+              fi
+            }
+
+            trap restore_app ERR
+
+            pm2 stop blog || true
             pnpm install --frozen-lockfile
             pnpm prisma generate
             pnpm prisma db push
@@ -94,3 +110,4 @@ jobs:
 
             PM2_CWD="$APP_DIR" pm2 startOrReload ecosystem.config.cjs --update-env
             pm2 save
+            trap - ERR
