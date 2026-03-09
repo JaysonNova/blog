@@ -29,9 +29,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Validate code
+        env:
+          DATABASE_URL: file:./prisma/ci.db
         run: |
           pnpm lint
           pnpm typecheck
+          pnpm prisma db push
           pnpm exec next build --webpack
 
       - name: Sync source to VPS
