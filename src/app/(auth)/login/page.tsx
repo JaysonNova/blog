@@ -29,6 +29,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   const resolvedSearchParams = await searchParams
   const callbackUrl = normalizeCallbackUrl(resolvedSearchParams.callbackUrl)
+  const showDevCredentials = process.env.NODE_ENV !== 'production'
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,#f5f5f5,transparent_45%),linear-gradient(180deg,#ffffff,#f8f8f8)] px-4 py-10 dark:bg-[radial-gradient(circle_at_top,#1f1f1f,transparent_35%),linear-gradient(180deg,#0a0a0a,#111111)]">
@@ -48,14 +49,23 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border bg-background/90 p-5">
-              <p className="text-sm font-medium">开发环境默认账号</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                邮箱 `admin@example.com`
-                <br />
-                密码 `admin123`
-              </p>
-            </div>
+            {showDevCredentials ? (
+              <div className="rounded-2xl border border-border bg-background/90 p-5">
+                <p className="text-sm font-medium">开发环境默认账号</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  邮箱 `admin@example.com`
+                  <br />
+                  密码 `admin123`
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border bg-background/90 p-5">
+                <p className="text-sm font-medium">管理员账号由生产环境配置</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  请使用已配置的管理员邮箱与密码登录。
+                </p>
+              </div>
+            )}
           </div>
         </section>
 
