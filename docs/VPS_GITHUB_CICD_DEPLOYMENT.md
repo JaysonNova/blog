@@ -190,10 +190,311 @@ Run `pm2 startup` once and execute the command it prints, so the app can auto-st
 ## 11. Notes for the Current Project
 
 - Admin login depends on `NEXTAUTH_URL` / `NEXTAUTH_SECRET`, so these must be correct in production.
+- Production admin seeding requires `ADMIN_EMAIL` and `ADMIN_PASSWORD` (optional `ADMIN_NAME`).
 - The current media upload flow writes into `public/uploads`, which is fine on one VPS but not ideal for future multi-node deployment.
 - The current Next.js `serverActions.bodySizeLimit` is only `2mb`, so large media uploads are not ready for production yet.
 
-## 12. Recommended Next Improvements
+## 12. Problems Encountered During Actual Deployment
+
+The first real deployment exposed a few issues that are worth documenting.
+
+### Reverse proxy conflict on the VPS
+
+The guide above assumes `nginx` owns `80/443`, but the actual VPS already had `caddy` listening on `80`.
+
+Before enabling `nginx`, check port ownership first:
+
+```bash
+sudo ss -ltnp | grep ':80\|:443'
+```
+
+If another reverse proxy is already serving production traffic:
+
+- do not blindly stop or replace it
+- inspect its existing site config first
+- either add the blog to the current proxy or schedule a controlled cutover
+
+In the actual deployment, the safer choice was to expose the blog through the existing `caddy` setup and disable unused `nginx`.
+
+### Caddy reload may fail when admin API is disabled
+
+If `Caddyfile` contains:
+
+```caddyfile
+{
+  admin off
+}
+```
+
+then `caddy reload` / `systemctl reload caddy` may fail even when the config is valid, because the admin API on `127.0.0.1:2019` is unavailable.
+
+In that case:
+
+1. validate config first
+2. use service restart instead of reload
+
+```bash
+sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+sudo systemctl restart caddy
+```
+
+### Adding a new blog subdomain on the existing Caddy-based VPS
+
+The actual VPS already had:
+
+- `caddy` serving `80/443`
+- the blog exposed by IP through `/etc/caddy/sites/blog-ip.conf`
+- the VPN endpoint using `troy.mileswave.top:343` through `/etc/caddy/233boy/troy.mileswave.top.conf`
+
+In this setup, adding a blog domain such as `blog.mileswave.top` should be done in `caddy`, not `nginx`.
+
+Recommended steps:
+
+1. create a DNS `A` record:
+   - `blog.mileswave.top -> 38.85.247.254`
+2. if you use Cloudflare, keep `Proxy status` as `DNS only` during initial certificate issuance and troubleshooting
+3. verify the domain resolves to the VPS publicly
+4. confirm live port ownership on the server
+5. add a dedicated site config for the blog domain
+6. update the production app URLs
+7. validate and restart `caddy`
+8. restart the `pm2` blog process so runtime env matches the new domain
+
+Useful checks:
+
+```bash
+dig +short blog.mileswave.top
+sudo ss -ltnp | grep ':80\|:443\|:343\|:3000'
+sed -n '1,120p' /etc/caddy/Caddyfile
+ls -la /etc/caddy/sites /etc/caddy/233boy
+```
+
+The actual `Caddyfile` pattern on the VPS looked like:
+
+```caddyfile
+{
+  admin off
+  http_port 80
+  https_port 443
+}
+import /etc/caddy/233boy/*.conf
+import /etc/caddy/sites/*.conf
+```
+
+Create the blog domain site file:
+
+```bash
+sudo tee /etc/caddy/sites/blog.mileswave.top.conf >/dev/null <<'EOF'
+blog.mileswave.top {
+  reverse_proxy 127.0.0.1:3000
+}
+EOF
+```
+
+Update `/var/www/blog/shared/.env.production`:
+
+```bash
+NEXTAUTH_URL="https://blog.mileswave.top"
+NEXT_PUBLIC_SITE_URL="https://blog.mileswave.top"
+APP_URL="https://blog.mileswave.top"
+```
+
+Then apply the change:
+
+```bash
+sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+sudo systemctl restart caddy
+PM2_CWD=/var/www/blog/current pm2 restart blog --update-env
+```
+
+Expected behavior before TLS is ready:
+
+- `http://blog.mileswave.top` may already redirect to `https://blog.mileswave.top`
+- `https://blog.mileswave.top` may still fail until a valid certificate is available
+
+### Fallback when Caddy automatic TLS issuance fails
+
+During the actual `blog.mileswave.top` cutover, `caddy` served the HTTP challenge correctly, but Let's Encrypt production returned ACME errors like:
+
+- `No such challenge`
+- `No such authorization`
+
+In that situation:
+
+- DNS and port `80` reachability were already working
+- `caddy` automatic issuance was not sufficient
+- using `certbot` as a fallback was the fastest safe recovery path
+
+Install `certbot`:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y certbot
+```
+
+Important:
+
+- `certbot --standalone` needs port `80`
+- stopping `caddy` briefly will interrupt all services currently proxied by `caddy`, including the blog and any `:343` VPN endpoint it owns
+
+Issue the certificate:
+
+```bash
+sudo systemctl stop caddy
+sudo certbot certonly \
+  --standalone \
+  --non-interactive \
+  --agree-tos \
+  --register-unsafely-without-email \
+  -d blog.mileswave.top
+```
+
+Then point the site config at the issued certificate:
+
+```bash
+sudo tee /etc/caddy/sites/blog.mileswave.top.conf >/dev/null <<'EOF'
+blog.mileswave.top {
+  tls /etc/letsencrypt/live/blog.mileswave.top/fullchain.pem /etc/letsencrypt/live/blog.mileswave.top/privkey.pem
+  reverse_proxy 127.0.0.1:3000
+}
+EOF
+```
+
+Add a renewal deploy hook so `caddy` reloads the renewed certificate:
+
+```bash
+sudo mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+sudo tee /etc/letsencrypt/renewal-hooks/deploy/restart-caddy.sh >/dev/null <<'EOF'
+#!/bin/sh
+systemctl restart caddy
+EOF
+sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-caddy.sh
+```
+
+Validate and start the proxy again:
+
+```bash
+sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+sudo systemctl start caddy
+```
+
+Useful final checks:
+
+```bash
+certbot certificates
+curl -I http://blog.mileswave.top
+curl -I https://blog.mileswave.top
+pm2 status
+sudo ss -ltnp | grep ':80\|:443\|:343\|:3000'
+```
+
+Expected healthy result:
+
+- `http://blog.mileswave.top` returns `308` redirect to HTTPS
+- `https://blog.mileswave.top` returns `200 OK`
+- `pm2 status` shows `blog` as `online`
+- `caddy` still listens on `:343` if the VPN endpoint is managed there
+
+### GitHub CLI auth must be valid before setting secrets
+
+If you plan to use `gh secret set`, verify auth first:
+
+```bash
+gh auth status
+```
+
+If the token is invalid, re-authenticate before setting repository secrets:
+
+```bash
+gh auth login -h github.com
+```
+
+### `pnpm-workspace.yaml` must contain `packages`
+
+`actions/setup-node` with `cache: pnpm` can fail if `pnpm-workspace.yaml` exists but does not declare a `packages` field.
+
+For this single-package repo, keep at least:
+
+```yaml
+packages:
+  - '.'
+```
+
+### CI build needs a temporary `DATABASE_URL`
+
+The app prerenders admin and content pages during `next build`, and those routes access Prisma. On GitHub Actions, `pnpm exec next build --webpack` can fail if `DATABASE_URL` is missing.
+
+A practical CI-safe fix is:
+
+1. set a temporary SQLite `DATABASE_URL`
+2. run `pnpm prisma db push`
+3. run `pnpm exec next build --webpack`
+
+Example:
+
+```bash
+DATABASE_URL="file:./prisma/ci.db" pnpm prisma db push
+DATABASE_URL="file:./prisma/ci.db" pnpm exec next build --webpack
+```
+
+### Low-memory VPS can OOM during deploy
+
+On a roughly `1GB` VPS, running `pnpm install` and `next build` while the production app is still running can trigger Linux OOM kill (`exit code 137`).
+
+Symptoms usually look like:
+
+- `pnpm install --frozen-lockfile` or `node` gets killed
+- `dmesg` shows `Out of memory: Killed process ...`
+
+Recommended mitigation:
+
+1. stop the running `pm2` app before install/build
+2. build and deploy
+3. start or reload the app after success
+4. restore the app automatically if the deploy script fails after stopping it
+
+### Ubuntu cloud-init SSH config can override your hardening
+
+On some Ubuntu VPS images, `/etc/ssh/sshd_config` includes:
+
+```conf
+Include /etc/ssh/sshd_config.d/*.conf
+```
+
+and files such as `50-cloud-init.conf` may already set:
+
+```conf
+PasswordAuthentication yes
+```
+
+If that happens, adding a later override may not take effect the way you expect.
+
+Recommended checks:
+
+```bash
+sudo sshd -T | egrep '^(pubkeyauthentication|passwordauthentication|kbdinteractiveauthentication|permitrootlogin)'
+sudo find /etc/ssh/sshd_config.d -maxdepth 1 -type f | sort
+```
+
+Always confirm the final effective SSH settings with `sshd -T`, not only by reading one config file.
+
+## 13. Deployment Verification Checklist
+
+After the first production deployment, verify at least these items:
+
+1. reverse proxy ownership is clear on `80/443`
+2. key-based SSH login works in a second terminal before disabling password auth
+3. GitHub repository secrets are present and correct
+4. the first `main` deployment workflow finishes successfully
+5. `pm2 status` shows `blog` as `online`
+6. `curl -I http://127.0.0.1:3000/` returns `200 OK`
+7. `curl -I http://your_server_ip/` or your domain returns `200 OK`
+8. if memory is tight, deploy scripts stop and restore the app safely
+9. if Cloudflare is used during first domain cutover, `Proxy status` is `DNS only` until origin TLS is confirmed
+10. `curl -I https://blog.mileswave.top` returns `200 OK` after certificate issuance
+11. existing `caddy` listeners such as `:343` still exist if they serve other production traffic
+
+## 14. Recommended Next Improvements
 
 After the first deployment is stable, the next infrastructure tasks should be:
 
