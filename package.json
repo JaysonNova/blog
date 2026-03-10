@@ -18,12 +18,16 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
+    "admin:set-credentials": "tsx scripts/set-admin-credentials.ts",
     "prepare": "husky"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1005.0",
+    "@aws-sdk/s3-request-presigner": "^3.1005.0",
     "@hookform/resolvers": "^3.9.1",
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.0",
+    "@next/env": "16.1.6",
     "@next/mdx": "^16.1.6",
     "@prisma/client": "5.22.0",
     "@radix-ui/react-dialog": "^1.1.2",

@@ -1,12 +1,18 @@
 import { PrismaClient } from '@prisma/client'
+import { loadEnvConfig } from '@next/env'
 import { hash } from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
 async function main() {
+  loadEnvConfig(process.cwd())
   console.log('🌱 Seeding database...')
 
-  const isProduction = process.env.NODE_ENV === 'production'
+  const isProduction =
+    process.env.NODE_ENV === 'production' ||
+    process.env.VERCEL_ENV === 'production' ||
+    process.env.APP_ENV === 'production'
+
   if (isProduction && (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD)) {
     throw new Error('Missing ADMIN_EMAIL or ADMIN_PASSWORD for production seeding.')
   }

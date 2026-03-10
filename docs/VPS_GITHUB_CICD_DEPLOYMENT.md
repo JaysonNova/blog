@@ -191,8 +191,8 @@ Run `pm2 startup` once and execute the command it prints, so the app can auto-st
 
 - Admin login depends on `NEXTAUTH_URL` / `NEXTAUTH_SECRET`, so these must be correct in production.
 - Production admin seeding requires `ADMIN_EMAIL` and `ADMIN_PASSWORD` (optional `ADMIN_NAME`).
-- The current media upload flow writes into `public/uploads`, which is fine on one VPS but not ideal for future multi-node deployment.
-- The current Next.js `serverActions.bodySizeLimit` is only `2mb`, so large media uploads are not ready for production yet.
+- The media upload flow uses browser direct-upload to Cloudflare R2 and stores only final URLs in the database.
+- Keep R2 bucket CORS aligned with your frontend origin, otherwise browser-side `PUT` uploads will fail.
 
 ## 12. Problems Encountered During Actual Deployment
 
@@ -502,3 +502,23 @@ After the first deployment is stable, the next infrastructure tasks should be:
 2. replace SQLite with PostgreSQL if traffic or write concurrency grows
 3. add health checks and rollback strategy
 4. add a staging environment for `develop`
+
+## 15. Reset Production Admin Credentials
+
+If the production admin credentials in `/var/www/blog/shared/.env.production` drift from the database record, update the database directly on the server instead of guessing which side is correct.
+
+Run this on the VPS:
+
+```bash
+cd /var/www/blog/current
+pnpm admin:set-credentials --email admin@troy.com --password 'replace-with-a-strong-password' --name 'Admin'
+```
+
+This command will:
+
+1. update the matching user if it already exists
+2. create the user if it does not exist
+3. force the role to `ADMIN`
+4. replace the stored password hash with a fresh `bcrypt` hash
+
+After updating the database, keep `/var/www/blog/shared/.env.production` synchronized with the same `ADMIN_EMAIL` and `ADMIN_PASSWORD` values so later production seeding does not reintroduce credential drift.
