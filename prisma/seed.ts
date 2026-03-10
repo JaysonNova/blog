@@ -20,23 +20,31 @@ async function main() {
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com'
   const adminName = process.env.ADMIN_NAME || 'Admin User'
   const adminPasswordPlain = process.env.ADMIN_PASSWORD || 'admin123'
-
-  // Create admin user
-  const adminPassword = await hash(adminPasswordPlain, 12)
-  const admin = await prisma.user.upsert({
+  const existingAdmin = await prisma.user.findUnique({
     where: { email: adminEmail },
-    update: {
-      name: adminName,
-      password: adminPassword,
-      role: 'ADMIN',
-    },
-    create: {
-      email: adminEmail,
-      name: adminName,
-      password: adminPassword,
-      role: 'ADMIN',
+    select: {
+      id: true,
     },
   })
+
+  const adminPassword = await hash(adminPasswordPlain, 12)
+  const admin = existingAdmin
+    ? await prisma.user.update({
+        where: { email: adminEmail },
+        data: {
+          name: adminName,
+          role: 'ADMIN',
+          ...(isProduction ? {} : { password: adminPassword }),
+        },
+      })
+    : await prisma.user.create({
+        data: {
+          email: adminEmail,
+          name: adminName,
+          password: adminPassword,
+          role: 'ADMIN',
+        },
+      })
 
   console.log('✅ Created admin user:', admin.email)
 

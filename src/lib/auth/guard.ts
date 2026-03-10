@@ -5,6 +5,19 @@ interface RequireAdminOptions {
   callbackUrl?: string
 }
 
+function getOwnerAdminEmail() {
+  const configuredEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
+  if (configuredEmail) {
+    return configuredEmail
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    return 'admin@example.com'
+  }
+
+  return null
+}
+
 export async function getCurrentUser() {
   const session = await auth()
   return session?.user ?? null
@@ -23,4 +36,24 @@ export async function requireAdminUser(options: RequireAdminOptions = {}) {
   }
 
   return session.user
+}
+
+export function isOwnerAdminUser(user: { email?: string | null }) {
+  const ownerEmail = getOwnerAdminEmail()
+  if (!ownerEmail || !user.email) {
+    return false
+  }
+
+  return user.email.toLowerCase() === ownerEmail
+}
+
+export async function requireOwnerAdminUser(options: RequireAdminOptions = {}) {
+  const callbackUrl = options.callbackUrl || '/admin/security'
+  const user = await requireAdminUser({ callbackUrl })
+
+  if (!isOwnerAdminUser(user)) {
+    redirect('/admin')
+  }
+
+  return user
 }
