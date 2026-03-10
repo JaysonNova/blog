@@ -99,7 +99,7 @@ export default async function AdminDashboardPage() {
             <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
               <li>文章编辑仍是新建版，后续要补编辑、删除和草稿恢复。</li>
               <li>目前只有管理员角色，后续可扩展 editor / reviewer。</li>
-              <li>上传文件直接落到 `public/uploads/`，正式环境需切对象存储。</li>
+              <li>媒体已切到对象存储，后续可补自动缩略图和断点续传。</li>
             </ul>
           </div>
         </section>

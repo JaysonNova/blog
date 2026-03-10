@@ -53,6 +53,7 @@ export function PhotoGallery({ photos }: PhotoGalleryProps) {
                   width={photo.width || 800}
                   height={photo.height || 600}
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  unoptimized
                   placeholder="blur"
                   blurDataURL={getShimmerDataUrl(photo.width || 800, photo.height || 600)}
                   className="w-full h-auto transition-transform duration-500 group-hover:scale-105"

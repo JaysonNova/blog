@@ -7,7 +7,7 @@ import { photoDAO } from '@/lib/db/dao/photo-dao'
 import { postDAO } from '@/lib/db/dao/post-dao'
 import { videoDAO } from '@/lib/db/dao/video-dao'
 import { requireAdminUser } from '@/lib/auth/guard'
-import { getOptionalFile, saveUploadedFile } from '@/lib/server/uploads'
+import { getOptionalUploadedUrl, requireUploadedUrl } from '@/lib/server/uploads'
 import { createExcerpt } from '@/lib/utils/content'
 import { slugify } from '@/lib/utils/slug'
 
@@ -17,12 +17,14 @@ const postSchema = z.object({
   excerpt: z.string().trim().optional(),
   content: z.string().trim().min(20, '正文至少需要 20 个字符。'),
   coverImageUrl: z.string().trim().optional(),
+  coverImageUploadUrl: z.string().trim().optional(),
   categoryId: z.string().trim().optional(),
 })
 
 const photoSchema = z.object({
   title: z.string().trim().min(1, '照片标题不能为空。'),
   description: z.string().trim().optional(),
+  imageUrl: z.string().trim().min(1, '图片上传 URL 不能为空。'),
   location: z.string().trim().optional(),
   takenAt: z.string().trim().optional(),
 })
@@ -30,6 +32,8 @@ const photoSchema = z.object({
 const videoSchema = z.object({
   title: z.string().trim().min(1, '视频标题不能为空。'),
   description: z.string().trim().optional(),
+  videoUrl: z.string().trim().min(1, '视频上传 URL 不能为空。'),
+  thumbnailUrl: z.string().trim().optional(),
   duration: z.string().trim().optional(),
 })
 
@@ -95,19 +99,18 @@ export async function createPostAction(formData: FormData) {
       excerpt: formData.get('excerpt'),
       content: formData.get('content'),
       coverImageUrl: formData.get('coverImageUrl'),
+      coverImageUploadUrl: formData.get('coverImageUploadUrl'),
       categoryId: formData.get('categoryId'),
     })
 
     const user = await requireAdminUser({ callbackUrl: '/admin/posts/new' })
     const requestedSlug = parsed.slug || parsed.title
     const slug = await getUniquePostSlug(requestedSlug)
-    const coverUpload = getOptionalFile(formData.get('coverImageUpload'))
-    const coverImage = coverUpload
-      ? (await saveUploadedFile(coverUpload, {
-          kind: 'image',
-          fieldName: '封面图',
-        })).url
-      : parsed.coverImageUrl
+    const uploadedCoverImage = getOptionalUploadedUrl(parsed.coverImageUploadUrl, {
+      kind: 'image',
+      fieldName: '封面图上传',
+    })
+    const coverImage = uploadedCoverImage ?? (parsed.coverImageUrl || undefined)
 
     const tagIds = formData
       .getAll('tagIds')
@@ -123,7 +126,7 @@ export async function createPostAction(formData: FormData) {
       coverImage,
       published,
       publishedAt: published ? new Date() : undefined,
-      categoryId: parsed.categoryId,
+      categoryId: parsed.categoryId || undefined,
       tagIds,
       authorId: user.id,
     })
@@ -142,12 +145,13 @@ export async function createPhotoAction(formData: FormData) {
     const parsed = photoSchema.parse({
       title: formData.get('title'),
       description: formData.get('description'),
+      imageUrl: formData.get('imageUrl'),
       location: formData.get('location'),
       takenAt: formData.get('takenAt'),
     })
 
     const user = await requireAdminUser({ callbackUrl: '/admin/media' })
-    const imageUpload = await saveUploadedFile(formData.get('image'), {
+    const imageUrl = requireUploadedUrl(parsed.imageUrl, {
       kind: 'image',
       fieldName: '图片文件',
     })
@@ -155,9 +159,9 @@ export async function createPhotoAction(formData: FormData) {
     await photoDAO.create({
       title: parsed.title,
       description: parsed.description,
-      imageUrl: imageUpload.url,
-      thumbnailUrl: imageUpload.url,
-      location: parsed.location,
+      imageUrl,
+      thumbnailUrl: imageUrl,
+      location: parsed.location || undefined,
       takenAt: toDate(parsed.takenAt),
       published: toBoolean(formData.get('published')),
       authorId: user.id,
@@ -176,26 +180,26 @@ export async function createVideoAction(formData: FormData) {
     const parsed = videoSchema.parse({
       title: formData.get('title'),
       description: formData.get('description'),
+      videoUrl: formData.get('videoUrl'),
+      thumbnailUrl: formData.get('thumbnailUrl'),
       duration: formData.get('duration'),
     })
 
     const user = await requireAdminUser({ callbackUrl: '/admin/media' })
-    const videoUpload = await saveUploadedFile(formData.get('video'), {
+    const videoUrl = requireUploadedUrl(parsed.videoUrl, {
       kind: 'video',
       fieldName: '视频文件',
     })
-    const thumbnailUpload = getOptionalFile(formData.get('thumbnail'))
+    const thumbnailUrl = getOptionalUploadedUrl(parsed.thumbnailUrl, {
+      kind: 'image',
+      fieldName: '缩略图',
+    })
 
     await videoDAO.create({
       title: parsed.title,
       description: parsed.description,
-      videoUrl: videoUpload.url,
-      thumbnailUrl: thumbnailUpload
-        ? (await saveUploadedFile(thumbnailUpload, {
-            kind: 'image',
-            fieldName: '缩略图',
-          })).url
-        : undefined,
+      videoUrl,
+      thumbnailUrl,
       duration: toPositiveNumber(parsed.duration),
       published: toBoolean(formData.get('published')),
       authorId: user.id,

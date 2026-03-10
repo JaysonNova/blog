@@ -61,7 +61,7 @@ pnpm install
 3. 配置环境变量：
 ```bash
 cp .env.example .env
-# 编辑 .env 文件，配置数据库连接
+# 编辑 .env 文件，配置数据库、认证与 R2
 ```
 
 4. 初始化数据库：
@@ -104,6 +104,24 @@ pnpm prisma:migrate   # 运行数据库迁移
 pnpm prisma:studio    # 打开 Prisma Studio
 pnpm prisma:seed      # 填充测试数据
 ```
+
+# 📦 媒体上传（Cloudflare R2）
+
+后台媒体上传与文章封面上传使用直传链路：
+
+1. 浏览器先请求 `/api/uploads/presign` 获取预签名 URL
+2. 浏览器直接 PUT 文件到 R2（不经过 Server Action）
+3. 表单仅提交媒体 URL 到 Server Action 入库
+
+需要在 `.env` 配置以下变量：
+
+- `R2_ACCOUNT_ID`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET`
+- `R2_PUBLIC_BASE_URL`
+
+并在 R2 bucket 侧配置浏览器直传所需 CORS（允许你的站点域名发起 `PUT` 请求）。
 
 ## 📁 项目结构
 
