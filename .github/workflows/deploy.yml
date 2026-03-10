@@ -33,6 +33,7 @@ jobs:
           DATABASE_URL: file:./prisma/ci.db
         run: |
           pnpm lint
+          pnpm prisma generate
           pnpm typecheck
           pnpm prisma db push
           pnpm exec next build --webpack
