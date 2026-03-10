@@ -1,18 +1,18 @@
 import Link from 'next/link'
-import { requireAdminUser } from '@/lib/auth/guard'
+import { isOwnerAdminUser, requireAdminUser } from '@/lib/auth/guard'
 import { logoutAction } from '@/lib/auth/actions'
 import { Container } from '@/components/layout/Container'
 import { Button } from '@/components/ui/button'
 
-const navItems = [
-  { href: '/admin', label: '概览' },
-  { href: '/admin/posts', label: '文章' },
-  { href: '/admin/posts/new', label: '写文章' },
-  { href: '/admin/media', label: '媒体上传' },
-]
-
 export async function AdminShell({ children }: { children: React.ReactNode }) {
   const user = await requireAdminUser()
+  const navItems = [
+    { href: '/admin', label: '概览' },
+    { href: '/admin/posts', label: '文章' },
+    { href: '/admin/posts/new', label: '写文章' },
+    { href: '/admin/media', label: '媒体上传' },
+    ...(isOwnerAdminUser(user) ? [{ href: '/admin/security', label: '安全' }] : []),
+  ]
 
   return (
     <div className="min-h-screen bg-muted/30 py-10">
@@ -27,7 +27,7 @@ export async function AdminShell({ children }: { children: React.ReactNode }) {
                 <h1 className="text-3xl font-bold tracking-tight">简约博客内容后台</h1>
                 <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                   当前版本已接入管理员登录鉴权，可进行 Markdown 写作、封面上传、
-                  图片和视频入库。正式环境建议再补密码重置与审计日志。
+                  图片和视频入库。Owner admin 可在安全页修改数据库中的登录密码。
                 </p>
               </div>
             </div>
