@@ -148,6 +148,7 @@ Add these repository secrets in GitHub:
 The repository includes:
 
 - [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)
+- [`.github/workflows/admin-ops.yml`](../.github/workflows/admin-ops.yml)
 - [`ecosystem.config.cjs`](../ecosystem.config.cjs)
 
 Workflow behavior:
@@ -163,6 +164,12 @@ Workflow behavior:
 9. run `pnpm prisma db push`
 10. run `pnpm exec next build --webpack`
 11. restart with `pm2`
+
+The repository also includes a manual `Admin Ops` workflow for production-only admin account inspection and recovery. Use it when:
+
+- the production admin password no longer matches what operators expect
+- `.env.production` and the database may have drifted
+- you need to inspect the current `ADMIN` rows without direct SSH access
 
 ## 9. First Deployment
 
@@ -522,3 +529,54 @@ This command will:
 4. replace the stored password hash with a fresh `bcrypt` hash
 
 After updating the database, keep `/var/www/blog/shared/.env.production` synchronized with the same `ADMIN_EMAIL` and `ADMIN_PASSWORD` values so later production seeding does not reintroduce credential drift.
+
+## 16. Admin Login Triage and Recovery
+
+### Distinguish credential problems from runtime auth problems
+
+The login action now separates two common classes of production failures:
+
+- `邮箱或密码错误。`
+  - The credentials provider rejected the email/password pair.
+  - First suspect credential drift between the production database and `/var/www/blog/shared/.env.production`.
+- `登录失败，请稍后重试。`
+  - The login flow hit a runtime auth error after credential submission.
+  - Check `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, database reachability, and current app logs.
+
+Do not treat these two messages as the same incident. The first is usually a credential state problem. The second is usually an application/runtime problem.
+
+### Temporary `502` during deployment can be expected
+
+The current production topology is a single app instance behind `caddy`. During the `Build and restart on VPS` step in [`deploy.yml`](../.github/workflows/deploy.yml), the app process is intentionally stopped before install/build and started again after the build completes.
+
+That means a short-lived `502` from `caddy` can be expected while the workflow is in this step. Before treating `502` as a production outage, check whether the latest `main` deploy run is still in progress.
+
+### Preferred recovery path: GitHub Actions `Admin Ops`
+
+When GitHub Actions SSH secrets are working, prefer the manual `Admin Ops` workflow over guessing values on the VPS.
+
+Available operations:
+
+1. `inspect`
+   - prints the current `ADMIN_EMAIL` loaded from `/var/www/blog/shared/.env.production`
+   - prints a safe summary of current `ADMIN` rows from the production database
+2. `resync-db-from-env`
+   - uses the current `ADMIN_EMAIL` and `ADMIN_PASSWORD` from `/var/www/blog/shared/.env.production`
+   - rewrites the matching production admin record in the database
+3. `set-explicit`
+   - accepts an explicit email/password/name from the workflow dispatch form
+   - updates `/var/www/blog/shared/.env.production`
+   - updates the production database to the same values
+
+This workflow is the preferred break-glass path when the operator knows the production password should change but does not want to SSH into the VPS manually.
+
+### Recovery checklist
+
+1. Run `Admin Ops -> inspect`.
+2. If the database should match current env values, run `Admin Ops -> resync-db-from-env`.
+3. If you need a brand-new admin password, run `Admin Ops -> set-explicit`.
+4. After recovery, verify:
+   - `/login?callbackUrl=%2Fadmin` returns `200`
+   - a real login reaches `/admin`
+   - `/admin/security` is available for the owner admin account
+5. Sync `main` back into `develop` after any hotfix merge so recovery tooling is not left behind production.
