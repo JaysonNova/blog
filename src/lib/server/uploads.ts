@@ -1,15 +1,13 @@
 import 'server-only'
 
-import { mkdir, writeFile } from 'fs/promises'
 import path from 'path'
+import { getStorageAdapter } from '@/lib/server/storage'
+import type { DirectUploadTarget, UploadKind, UploadRule } from '@/lib/server/storage/types'
 import { slugify } from '@/lib/utils/slug'
 
-type UploadKind = 'image' | 'video'
+const SIGNED_UPLOAD_TTL_SECONDS = 10 * 60
 
-const uploadConfig: Record<
-  UploadKind,
-  { directory: string; mimeTypes: string[]; maxSize: number; fallbackExtension: string }
-> = {
+const uploadConfig: Record<UploadKind, UploadRule> = {
   image: {
     directory: 'images',
     mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
@@ -24,56 +22,114 @@ const uploadConfig: Record<
   },
 }
 
-function assertFile(file: FormDataEntryValue | null, fieldName: string): File {
-  if (!(file instanceof File) || file.size === 0) {
-    throw new Error(`${fieldName} is required.`)
-  }
-
-  return file
-}
-
-function resolveExtension(file: File, fallbackExtension: string) {
-  const parsedExtension = path.extname(file.name).toLowerCase()
+function resolveExtension(fileName: string, fallbackExtension: string) {
+  const parsedExtension = path.extname(fileName).toLowerCase()
   return parsedExtension || fallbackExtension
 }
 
-export function getOptionalFile(file: FormDataEntryValue | null) {
-  if (file instanceof File && file.size > 0) {
-    return file
-  }
+function buildObjectKey(kind: UploadKind, fileName: string) {
+  const config = uploadConfig[kind]
+  const baseName = slugify(path.parse(fileName).name) || kind
+  const extension = resolveExtension(fileName, config.fallbackExtension)
+  const objectName = `${Date.now()}-${baseName}${extension}`
 
-  return null
+  return path.posix.join('uploads', config.directory, objectName)
 }
 
-export async function saveUploadedFile(
-  fileEntry: FormDataEntryValue | null,
+function assertUploadType(kind: UploadKind, contentType: string) {
+  if (!uploadConfig[kind].mimeTypes.includes(contentType)) {
+    throw new Error(`Unsupported ${kind} type: ${contentType || 'unknown'}`)
+  }
+}
+
+function assertUploadSize(kind: UploadKind, fileSize: number) {
+  if (fileSize > uploadConfig[kind].maxSize) {
+    throw new Error(`${kind} file exceeds the size limit.`)
+  }
+}
+
+function toOptionalString(value: FormDataEntryValue | null | undefined) {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+function normalizeUploadedUrl(
+  url: string,
   options: {
     kind: UploadKind
     fieldName: string
   }
 ) {
-  const file = assertFile(fileEntry, options.fieldName)
-  const config = uploadConfig[options.kind]
+  const storage = getStorageAdapter()
+  const objectKey = storage.getObjectKeyFromPublicUrl(url)
 
-  if (!config.mimeTypes.includes(file.type)) {
-    throw new Error(`Unsupported ${options.kind} type: ${file.type || 'unknown'}`)
+  if (!objectKey) {
+    throw new Error(`${options.fieldName} must be a valid uploaded asset URL.`)
   }
 
-  if (file.size > config.maxSize) {
-    throw new Error(`${options.fieldName} exceeds the size limit.`)
+  const expectedPrefix = `uploads/${uploadConfig[options.kind].directory}/`
+  if (!objectKey.startsWith(expectedPrefix)) {
+    throw new Error(`${options.fieldName} does not match the expected upload type.`)
   }
 
-  const baseName = slugify(path.parse(file.name).name) || options.kind
-  const extension = resolveExtension(file, config.fallbackExtension)
-  const fileName = `${Date.now()}-${baseName}${extension}`
-  const relativePath = path.join('uploads', config.directory, fileName)
-  const absolutePath = path.join(process.cwd(), 'public', relativePath)
+  return storage.getPublicUrl(objectKey)
+}
 
-  await mkdir(path.dirname(absolutePath), { recursive: true })
-  await writeFile(absolutePath, Buffer.from(await file.arrayBuffer()))
+export async function createDirectUploadTarget(input: {
+  kind: UploadKind
+  fileName: string
+  contentType: string
+  fileSize: number
+}): Promise<DirectUploadTarget> {
+  assertUploadType(input.kind, input.contentType)
+  assertUploadSize(input.kind, input.fileSize)
+
+  const objectKey = buildObjectKey(input.kind, input.fileName)
+  const storage = getStorageAdapter()
+  const signedUpload = await storage.createPresignedUploadUrl({
+    key: objectKey,
+    contentType: input.contentType,
+    expiresInSeconds: SIGNED_UPLOAD_TTL_SECONDS,
+  })
 
   return {
-    url: `/${relativePath.split(path.sep).join('/')}`,
-    fileName,
+    key: objectKey,
+    publicUrl: storage.getPublicUrl(objectKey),
+    expiresInSeconds: SIGNED_UPLOAD_TTL_SECONDS,
+    ...signedUpload,
   }
+}
+
+export function requireUploadedUrl(
+  value: FormDataEntryValue | null | undefined,
+  options: {
+    kind: UploadKind
+    fieldName: string
+  }
+) {
+  const normalized = toOptionalString(value)
+  if (!normalized) {
+    throw new Error(`${options.fieldName} is required.`)
+  }
+
+  return normalizeUploadedUrl(normalized, options)
+}
+
+export function getOptionalUploadedUrl(
+  value: FormDataEntryValue | null | undefined,
+  options: {
+    kind: UploadKind
+    fieldName: string
+  }
+) {
+  const normalized = toOptionalString(value)
+  if (!normalized) {
+    return undefined
+  }
+
+  return normalizeUploadedUrl(normalized, options)
 }

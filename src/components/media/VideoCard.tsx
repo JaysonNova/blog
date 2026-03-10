@@ -32,16 +32,21 @@ export function VideoCard({ video, onPlay }: VideoCardProps) {
     >
       {/* Thumbnail */}
       <div className="relative aspect-video overflow-hidden rounded-lg bg-muted mb-md">
-        <Image
-          src={video.thumbnailUrl || '/placeholder-video.jpg'}
-          alt={video.title}
-          fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          placeholder="blur"
-          blurDataURL={getShimmerDataUrl(1280, 720)}
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-          loading="lazy"
-        />
+        {video.thumbnailUrl ? (
+          <Image
+            src={video.thumbnailUrl}
+            alt={video.title}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            unoptimized
+            placeholder="blur"
+            blurDataURL={getShimmerDataUrl(1280, 720)}
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-foreground/10 via-muted to-foreground/5" />
+        )}
 
         {/* Play Button Overlay */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
@@ -61,6 +66,13 @@ export function VideoCard({ video, onPlay }: VideoCardProps) {
             {formatDuration(video.duration)}
           </div>
         )}
+
+        {!video.thumbnailUrl ? (
+          <div className="absolute inset-x-0 bottom-0 p-4 text-white bg-gradient-to-t from-black/70 to-transparent">
+            <p className="text-sm font-medium line-clamp-2">{video.title}</p>
+            <p className="mt-1 text-xs text-white/80">未设置缩略图，点击播放视频</p>
+          </div>
+        ) : null}
       </div>
 
       {/* Info */}

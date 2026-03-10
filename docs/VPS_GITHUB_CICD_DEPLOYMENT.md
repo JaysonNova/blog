@@ -191,8 +191,8 @@ Run `pm2 startup` once and execute the command it prints, so the app can auto-st
 
 - Admin login depends on `NEXTAUTH_URL` / `NEXTAUTH_SECRET`, so these must be correct in production.
 - Production admin seeding requires `ADMIN_EMAIL` and `ADMIN_PASSWORD` (optional `ADMIN_NAME`).
-- The current media upload flow writes into `public/uploads`, which is fine on one VPS but not ideal for future multi-node deployment.
-- The current Next.js `serverActions.bodySizeLimit` is only `2mb`, so large media uploads are not ready for production yet.
+- The media upload flow uses browser direct-upload to Cloudflare R2 and stores only final URLs in the database.
+- Keep R2 bucket CORS aligned with your frontend origin, otherwise browser-side `PUT` uploads will fail.
 
 ## 12. Problems Encountered During Actual Deployment
 
