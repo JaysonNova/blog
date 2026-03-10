@@ -35,23 +35,27 @@ jobs:
 
       - name: Prepare explicit admin inputs
         if: ${{ inputs.operation == 'set-explicit' }}
+        env:
+          INPUT_EMAIL: ${{ inputs.email }}
+          INPUT_PASSWORD: ${{ inputs.password }}
+          INPUT_NAME: ${{ inputs.name }}
         run: |
-          if [ -z "${{ inputs.email }}" ] || [ -z "${{ inputs.password }}" ]; then
+          if [ -z "$INPUT_EMAIL" ] || [ -z "$INPUT_PASSWORD" ]; then
             echo "email and password are required for set-explicit" >&2
             exit 1
           fi
 
-          echo "::add-mask::${{ inputs.password }}"
+          echo "::add-mask::$INPUT_PASSWORD"
 
           {
             echo "TARGET_EMAIL<<EOF"
-            echo "${{ inputs.email }}"
+            echo "$INPUT_EMAIL"
             echo "EOF"
             echo "TARGET_PASSWORD<<EOF"
-            echo "${{ inputs.password }}"
+            echo "$INPUT_PASSWORD"
             echo "EOF"
             echo "TARGET_NAME<<EOF"
-            echo "${{ inputs.name }}"
+            echo "$INPUT_NAME"
             echo "EOF"
           } >> "$GITHUB_ENV"
 
@@ -109,47 +113,7 @@ jobs:
               export ADMIN_PASSWORD="$TARGET_PASSWORD"
               export ADMIN_NAME="${TARGET_NAME:-${ADMIN_NAME:-Admin}}"
 
-              node <<'NODE'
-              const fs = require('node:fs')
-
-              const envFile = process.env.ENV_FILE
-              const updates = {
-                ADMIN_EMAIL: process.env.ADMIN_EMAIL || '',
-                ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || '',
-                ADMIN_NAME: process.env.ADMIN_NAME || 'Admin',
-              }
-
-              const lines = fs.existsSync(envFile)
-                ? fs.readFileSync(envFile, 'utf8').split(/\r?\n/)
-                : []
-              const nextLines = []
-              const seen = new Set()
-
-              for (const line of lines) {
-                const match = line.match(/^([A-Z0-9_]+)=/)
-                if (!match) {
-                  nextLines.push(line)
-                  continue
-                }
-
-                const key = match[1]
-                if (Object.prototype.hasOwnProperty.call(updates, key)) {
-                  nextLines.push(`${key}=${JSON.stringify(updates[key])}`)
-                  seen.add(key)
-                  continue
-                }
-
-                nextLines.push(line)
-              }
-
-              for (const [key, value] of Object.entries(updates)) {
-                if (!seen.has(key)) {
-                  nextLines.push(`${key}=${JSON.stringify(value)}`)
-                }
-              }
-
-              fs.writeFileSync(envFile, `${nextLines.join('\n').replace(/\n+$/, '')}\n`)
-              NODE
+              node -e 'const fs=require("node:fs");const envFile=process.env.ENV_FILE;const updates={ADMIN_EMAIL:process.env.ADMIN_EMAIL||"",ADMIN_PASSWORD:process.env.ADMIN_PASSWORD||"",ADMIN_NAME:process.env.ADMIN_NAME||"Admin"};const lines=fs.existsSync(envFile)?fs.readFileSync(envFile,"utf8").split(/\r?\n/):[];const nextLines=[];const seen=new Set();for(const line of lines){const match=line.match(/^([A-Z0-9_]+)=/);if(!match){nextLines.push(line);continue}const key=match[1];if(Object.prototype.hasOwnProperty.call(updates,key)){nextLines.push(`${key}=${JSON.stringify(updates[key])}`);seen.add(key);continue}nextLines.push(line)}for(const [key,value] of Object.entries(updates)){if(!seen.has(key)){nextLines.push(`${key}=${JSON.stringify(value)}`)}}fs.writeFileSync(envFile,`${nextLines.join("\n").replace(/\n+$/,"")}\n`)'
             fi
 
             if [ -z "${ADMIN_EMAIL:-}" ] || [ -z "${ADMIN_PASSWORD:-}" ]; then
