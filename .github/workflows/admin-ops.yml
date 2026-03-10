@@ -1,0 +1,75 @@
+name: Admin Ops
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Production admin operation
+        required: true
+        default: inspect
+        type: choice
+        options:
+          - inspect
+          - resync-db-from-env
+
+jobs:
+  admin-ops:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run admin operation on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+
+            APP_ROOT="${{ secrets.DEPLOY_PATH }}"
+            APP_DIR="$APP_ROOT/current"
+            ENV_FILE="$APP_ROOT/shared/.env.production"
+            OPERATION="${{ inputs.operation }}"
+
+            if [ ! -f "$ENV_FILE" ]; then
+              echo "Missing $ENV_FILE on server."
+              exit 1
+            fi
+
+            ln -sfn "$ENV_FILE" "$APP_DIR/.env"
+
+            export PNPM_HOME="$HOME/.local/share/pnpm"
+            export PATH="$PNPM_HOME:$PATH"
+
+            corepack enable
+            cd "$APP_DIR"
+
+            set -a
+            . "$ENV_FILE"
+            set +a
+
+            echo "Operation: $OPERATION"
+            echo "ENV ADMIN_EMAIL: ${ADMIN_EMAIL:-<missing>}"
+
+            if [ "$OPERATION" = "inspect" ]; then
+              pnpm exec tsx scripts/inspect-admin-users.ts
+              exit 0
+            fi
+
+            if [ -z "${ADMIN_EMAIL:-}" ] || [ -z "${ADMIN_PASSWORD:-}" ]; then
+              echo "Missing ADMIN_EMAIL or ADMIN_PASSWORD in $ENV_FILE"
+              exit 1
+            fi
+
+            if [ -n "${ADMIN_NAME:-}" ]; then
+              pnpm admin:set-credentials --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" --name "$ADMIN_NAME"
+            else
+              pnpm admin:set-credentials --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD"
+            fi
+
+            pnpm exec tsx scripts/inspect-admin-users.ts
