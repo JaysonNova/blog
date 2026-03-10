@@ -67,9 +67,19 @@ export async function loginAction(formData: FormData) {
     redirect(callbackUrl)
   } catch (error) {
     if (error instanceof AuthError) {
+      if (error.type === 'CredentialsSignin') {
+        redirectToLoginError('邮箱或密码错误。', callbackUrl)
+      }
+
+      console.error('[loginAction] auth error', {
+        type: error.type,
+        cause: error.cause,
+      })
+
       redirectToLoginError('登录失败，请稍后重试。', callbackUrl)
     }
 
-    throw error
+    console.error('[loginAction] unexpected error', error)
+    redirectToLoginError('登录失败，请稍后重试。', callbackUrl)
   }
 }

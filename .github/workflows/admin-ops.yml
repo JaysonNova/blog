@@ -1,0 +1,130 @@
+name: Admin Ops
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Production admin operation
+        required: true
+        default: inspect
+        type: choice
+        options:
+          - inspect
+          - resync-db-from-env
+          - set-explicit
+      email:
+        description: Admin email for set-explicit
+        required: false
+        type: string
+      password:
+        description: Admin password for set-explicit
+        required: false
+        type: string
+      name:
+        description: Admin display name for set-explicit
+        required: false
+        type: string
+
+jobs:
+  admin-ops:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare explicit admin inputs
+        if: ${{ inputs.operation == 'set-explicit' }}
+        env:
+          INPUT_EMAIL: ${{ inputs.email }}
+          INPUT_PASSWORD: ${{ inputs.password }}
+          INPUT_NAME: ${{ inputs.name }}
+        run: |
+          if [ -z "$INPUT_EMAIL" ] || [ -z "$INPUT_PASSWORD" ]; then
+            echo "email and password are required for set-explicit" >&2
+            exit 1
+          fi
+
+          echo "::add-mask::$INPUT_PASSWORD"
+
+          {
+            echo "TARGET_EMAIL<<EOF"
+            echo "$INPUT_EMAIL"
+            echo "EOF"
+            echo "TARGET_PASSWORD<<EOF"
+            echo "$INPUT_PASSWORD"
+            echo "EOF"
+            echo "TARGET_NAME<<EOF"
+            echo "$INPUT_NAME"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Run admin operation on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          OPERATION: ${{ inputs.operation }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: OPERATION,TARGET_EMAIL,TARGET_PASSWORD,TARGET_NAME
+          script_stop: true
+          script: |
+            set -e
+
+            APP_ROOT="${{ secrets.DEPLOY_PATH }}"
+            APP_DIR="$APP_ROOT/current"
+            ENV_FILE="$APP_ROOT/shared/.env.production"
+            export ENV_FILE
+
+            if [ ! -f "$ENV_FILE" ]; then
+              echo "Missing $ENV_FILE on server."
+              exit 1
+            fi
+
+            ln -sfn "$ENV_FILE" "$APP_DIR/.env"
+
+            export PNPM_HOME="$HOME/.local/share/pnpm"
+            export PATH="$PNPM_HOME:$PATH"
+
+            corepack enable
+            cd "$APP_DIR"
+
+            set -a
+            . "$ENV_FILE"
+            set +a
+
+            echo "Operation: $OPERATION"
+            echo "ENV ADMIN_EMAIL: ${ADMIN_EMAIL:-<missing>}"
+
+            if [ "$OPERATION" = "inspect" ]; then
+              pnpm exec tsx scripts/inspect-admin-users.ts
+              exit 0
+            fi
+
+            if [ "$OPERATION" = "set-explicit" ]; then
+              if [ -z "${TARGET_EMAIL:-}" ] || [ -z "${TARGET_PASSWORD:-}" ]; then
+                echo "Missing TARGET_EMAIL or TARGET_PASSWORD for set-explicit"
+                exit 1
+              fi
+
+              export ADMIN_EMAIL="$TARGET_EMAIL"
+              export ADMIN_PASSWORD="$TARGET_PASSWORD"
+              export ADMIN_NAME="${TARGET_NAME:-${ADMIN_NAME:-Admin}}"
+
+              node -e 'const fs=require("node:fs");const envFile=process.env.ENV_FILE;const updates={ADMIN_EMAIL:process.env.ADMIN_EMAIL||"",ADMIN_PASSWORD:process.env.ADMIN_PASSWORD||"",ADMIN_NAME:process.env.ADMIN_NAME||"Admin"};const lines=fs.existsSync(envFile)?fs.readFileSync(envFile,"utf8").split(/\r?\n/):[];const nextLines=[];const seen=new Set();for(const line of lines){const match=line.match(/^([A-Z0-9_]+)=/);if(!match){nextLines.push(line);continue}const key=match[1];if(Object.prototype.hasOwnProperty.call(updates,key)){nextLines.push(`${key}=${JSON.stringify(updates[key])}`);seen.add(key);continue}nextLines.push(line)}for(const [key,value] of Object.entries(updates)){if(!seen.has(key)){nextLines.push(`${key}=${JSON.stringify(value)}`)}}fs.writeFileSync(envFile,`${nextLines.join("\n").replace(/\n+$/,"")}\n`)'
+            fi
+
+            if [ -z "${ADMIN_EMAIL:-}" ] || [ -z "${ADMIN_PASSWORD:-}" ]; then
+              echo "Missing ADMIN_EMAIL or ADMIN_PASSWORD in $ENV_FILE"
+              exit 1
+            fi
+
+            if [ -n "${ADMIN_NAME:-}" ]; then
+              pnpm admin:set-credentials --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" --name "$ADMIN_NAME"
+            else
+              pnpm admin:set-credentials --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD"
+            fi
+
+            pnpm exec tsx scripts/inspect-admin-users.ts
